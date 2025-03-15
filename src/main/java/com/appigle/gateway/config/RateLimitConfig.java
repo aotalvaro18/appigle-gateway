@@ -56,6 +56,7 @@ public class RateLimitConfig {
      * @return RedisRateLimiter configurado
      */
     @Bean
+    @Primary
     public RedisRateLimiter memoryRateLimiter() {
         // Configuración actual permite 20 solicitudes por segundo con ráfaga de 40
         // Con límites más permisivos para facilitar desarrollo y pruebas
