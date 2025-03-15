@@ -113,7 +113,7 @@ public class ServiceDiscoveryConfig {
         return WebClient.builder()
             .defaultHeader("X-Gateway-Source", applicationName);
     }
-    // comentario para probar deploy git2
+    
     /**
      * Proporciona información sobre la configuración actual del service discovery.
      * Útil para diagnóstico y logging.

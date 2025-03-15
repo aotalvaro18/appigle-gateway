@@ -49,7 +49,7 @@ public class ErrorResponseBuilder {
     public ErrorResponseBuilder(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-
+    //Para tercer intento de deploy con git
     /**
      * Construye una respuesta de error básica con los campos estándar.
      * 
