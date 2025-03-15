@@ -1,10 +1,10 @@
 package com.appigle.gateway.config;
-//comentaruo para probar deploy git
+
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
+//import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
@@ -14,8 +14,8 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 public class MinimalGatewayConfig {
     
     @Bean
-    @Primary
-    public RouteLocator completeRouteLocator(
+    // Eliminar la anotación @Primary
+    public RouteLocator minimalGatewayRoutes(  // Cambiar el nombre del método
             RouteLocatorBuilder builder,
             KeyResolver ipKeyResolver,
             RedisRateLimiter memoryRateLimiter) {
