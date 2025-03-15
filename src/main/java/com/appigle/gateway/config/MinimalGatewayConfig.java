@@ -1,5 +1,5 @@
 package com.appigle.gateway.config;
-
+//comentaruo para probar deploy git
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.context.annotation.Bean;
