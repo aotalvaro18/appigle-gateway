@@ -10,7 +10,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class AppigleGatewayApplication {
     
     public static void main(String[] args) {
-        System.out.println(">>> INICIANDO GATEWAY VERSIÓN DE PRUEBA 1.3.2 <<<");
         SpringApplication.run(AppigleGatewayApplication.class, args);
     }
 }
