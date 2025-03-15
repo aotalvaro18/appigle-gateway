@@ -1,0 +1,172 @@
+# application-prod.yml
+# Configuraciones específicas para el entorno de producción.
+# Este archivo sobrescribe valores del application.yml cuando se activa el perfil 'prod'.
+
+# Configuración de servidor para producción
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 20
+    max-connections: 10000
+    accept-count: 500
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,application/javascript
+  error:
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
+
+# Configuraciones de Spring para producción
+spring:
+  # Configuración optimizada de Redis para producción
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 32
+          max-idle: 16
+          min-idle: 8
+          max-wait: 1000ms
+      # Actualizado: configuración de SSL con estructura anidada
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+  
+  # Optimizaciones de rendimiento
+  cloud:
+    gateway:
+      httpclient:
+        wiretap: false
+        connect-timeout: 2000
+        response-timeout: 5000
+        pool:
+          max-connections: 1000
+          max-idle-time: 15m
+      discovery:
+        locator:
+          enabled: true
+  
+  # Caché agresiva en producción
+  cache:
+    type: redis
+    redis:
+      time-to-live: 900000  # 15 minutos
+      cache-null-values: false
+
+# Configuración de seguridad para producción
+security:
+  jwt:
+    # Usar solo secreto de variable de entorno en producción
+    secret: ${JWT_SECRET}
+    token-blacklist:
+      enabled: true
+      time-to-live: 86400  # 24 horas
+  
+  # CORS restrictivo para producción
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.appigle.com,https://admin.appigle.com}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: Origin,Content-Type,Accept,Authorization
+
+# Configuración de rate limiting para producción
+rate-limiting:
+  enabled: true
+  default-limit-for-authenticated: ${RATE_LIMIT_AUTH:50}
+  default-limit-for-anonymous: ${RATE_LIMIT_ANON:20}
+  # Protección estricta para endpoints críticos
+  critical-limit-for-authenticated: 10
+  critical-limit-for-anonymous: 5
+
+# Configuración de resiliencia para producción
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 100
+        minimumNumberOfCalls: 30
+        waitDurationInOpenState: 60s
+  retry:
+    configs:
+      default:
+        maxAttempts: 2
+        waitDuration: 200ms
+  bulkhead:
+    configs:
+      default:
+        maxConcurrentCalls: 25
+        maxWaitDuration: 500ms
+    instances:
+      authService:
+        maxConcurrentCalls: 50
+      userService:
+        maxConcurrentCalls: 40
+
+# Configuración de logging para producción
+logging:
+  level:
+    root: WARN
+    com.appigle.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
+    reactor.netty: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} span_id=%X{span_id} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} span_id=%X{span_id} - %msg%n"
+  file:
+    name: ${LOG_FILE_PATH:/var/log/appigle/gateway.log}
+    max-size: ${LOG_FILE_MAX_SIZE:50MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+    total-size-cap: ${LOG_TOTAL_SIZE_CAP:2GB}
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 30
+      total-size-cap: 2GB
+
+# Configuración de monitoreo para producción - Actualizado
+management:
+  # Limitar endpoints expuestos en producción
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  # Limitar información expuesta
+  endpoint:
+    health:
+      show-details: ${HEALTH_SHOW_DETAILS:never}
+      show-components: false
+      probes:
+        enabled: true
+  # Métricas optimizadas para producción - Actualizado estructura para Prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 60s  # Intervalo de recopilación más largo para reducir carga
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95, 0.99
+  # Trazabilidad con sampling reducido en producción
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:0.1}  # 10% de las solicitudes
+
+# Configuración de fallback para producción
+fallback:
+  detailed-errors: false  # No mostrar detalles de error en producción
+  default-retry-after: 30
+
+# Optimizaciones de memoria para JVM en producción
+# Estas son sugerencias que deberían configurarse como variables de entorno JVM
+# -Xms1g -Xmx1g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/appigle/gateway-heap.dump

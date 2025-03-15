@@ -1,0 +1,221 @@
+# Configuración específica para el despliegue en Azure Container Apps
+
+# Configuración del servidor
+server:
+  port: 8080  # Puerto estándar para contenedores
+  forward-headers-strategy: native  # Importante para trabajar detrás de proxy en Azure
+  shutdown: graceful  # Permite un apagado controlado del servicio
+
+# Configuración de Spring
+spring:
+  # Configuración para apagado controlado
+  lifecycle:
+    timeout-per-shutdown-phase: 30s  # Tiempo aumentado para Azure Container Apps
+
+  # Configuración específica del Gateway para Azure
+  cloud:
+    gateway:
+      # Configuración de filtros globales
+      default-filters:
+        - name: AddResponseHeader
+          args:
+            name: X-App-Version
+            value: ${APP_VERSION:v1.0.0}
+        - name: AddResponseHeader
+          args:
+            name: X-Content-Type-Options
+            value: nosniff
+        - name: AddResponseHeader
+          args:
+            name: X-Frame-Options
+            value: DENY
+        - name: AddResponseHeader
+          args:
+            name: X-XSS-Protection
+            value: 1; mode=block
+        - name: RemoveRequestHeader
+          args:
+            name: Cookie
+        - name: RemoveRequestHeader
+          args:
+            name: Authorization
+        - name: SecureHeaders
+          args: {}
+        
+
+      # Rutas específicas usando Azure Container Apps DNS interno
+      #routes:
+       # - id: auth-service
+        #  uri: https://${AUTH_SERVICE_HOST:auth-service.internal.${CONTAINER_APP_ENV_DNS_SUFFIX}}
+         # predicates:
+          #  - Path=/api/auth/**, /api/users/**, /api/email-verification/**, /api/mfa/**
+        #  filters:
+         #   - name: CircuitBreaker
+          #    args:
+           #     name: authServiceCircuitBreaker
+            #    fallbackUri: forward:/fallback/auth
+
+      # Configuración del cliente HTTP optimizada para Azure
+      httpclient:
+        connect-timeout: ${HTTP_CONNECT_TIMEOUT:3000}
+        response-timeout: ${HTTP_RESPONSE_TIMEOUT:10000}
+        pool:
+          max-connections: ${MAX_CONNECTIONS:500}
+          acquire-timeout: 5000
+          max-idle-time: 60s  # Aumentado para entornos cloud
+
+      # Desactivar discovery locator ya que usamos DNS interno de Azure Container Apps
+      discovery:
+        locator:
+          enabled: false
+
+  # Configuración específica de Redis para Azure Cache for Redis
+  # Comentado ya que no se utilizará Redis por ahora
+  # data:
+  #  redis:
+  #    host: ${REDIS_HOST:localhost}
+  #    port: ${REDIS_PORT:6380}  # Puerto por defecto para Azure Redis con SSL
+  #    password: ${REDIS_PASSWORD:}
+  #    ssl:
+  #      enabled: true    # Habilitar SSL para Azure Redis
+  #    timeout: 3000ms  # Aumentado para entornos cloud
+  #    database: 0
+  #    lettuce:
+  #      pool:
+  #        max-active: 32  # Valores aumentados para mejor rendimiento en Azure
+  #        max-idle: 16
+  #        min-idle: 8
+  #        max-wait: 2000ms
+
+  # Configuración de codec para tamaños grandes
+  codec:
+    max-in-memory-size: ${MAX_IN_MEMORY_SIZE:10MB}  # Aumentado para entornos cloud
+
+# Configuración de seguridad para entorno Azure
+security:
+  jwt:
+    # En Azure, usar Azure Key Vault para secretos (futuro)
+    secret: ${JWT_SECRET:changeThisToARealSecretInProduction}
+    # Los demás parámetros se heredan de application.yml
+
+  # Configuración CORS adaptada para Azure
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.appigle.com,https://admin.appigle.com,${AZURE_FRONTEND_URL:https://appigle-frontend.azurewebsites.net}}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key}
+    exposed-headers: ${CORS_EXPOSED_HEADERS:Content-Disposition,X-Auth-Token,X-App-Version}
+    max-age: ${CORS_MAX_AGE:3600}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+
+# Configuración de Rate Limiting adaptada para Azure
+rate-limiting:
+  enabled: true
+  # Cambiar a false para usar rate limiting en memoria en lugar de Redis
+  redis-based: false
+  default-limit-for-authenticated: ${RATE_LIMIT_AUTH:60}  # Límites aumentados para Azure
+  default-limit-for-anonymous: ${RATE_LIMIT_ANON:30}
+
+# Configuración de Circuit Breaker ajustada para Azure
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 15
+        minimumNumberOfCalls: 8
+        failureRateThreshold: 50
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+    instances:
+      # Timeouts más largos para servicios en Azure
+      authServiceCircuitBreaker:
+        baseConfig: default
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+        slidingWindowSize: 20
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 10s
+        cancelRunningFuture: true
+
+    instances:
+      authServiceCircuitBreaker:
+        timeoutDuration: 15s  # Aumentado para entornos cloud
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 200ms  # Aumentado para entornos cloud
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+
+# Configuración de Logging adaptada para Azure
+logging:
+  level:
+    root: INFO
+    com.appigle.gateway: ${APP_LOG_LEVEL:INFO}  # Reducir nivel en producción
+    org.springframework.cloud.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    reactor.netty: ${NETTY_LOG_LEVEL:INFO}
+  # Patrones específicos para Azure Application Insights
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} span_id=%X{span_id} resource_id=${CONTAINER_APP_NAME:appigle-gateway} - %msg%n"
+
+# Configuración de Monitoreo para Azure
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers
+      base-path: /actuator  # Mantener ruta base estándar
+  endpoint:
+    health:
+      probes:
+        enabled: true  # Importante para Kubernetes/Container Apps health checks
+      show-details: always
+      group:
+        readiness:
+          # Eliminar la dependencia de Redis
+          include: diskSpace
+  # Configuración de métricas para Application Insights
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.9, 0.95, 0.99  # Percentiles importantes para análisis
+    tags:
+      application: ${spring.application.name}
+      environment: azure
+      resource-group: ${RESOURCE_GROUP:appigle-dev-rg}
+      container-app: ${CONTAINER_APP_NAME:appigle-gateway}
+  # Configuración de trazabilidad para Azure
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}  # Capturar todas las trazas durante la fase inicial
+    baggage:
+      remote-fields: x-request-id,x-b3-traceid
+      correlation:
+        fields: x-request-id,x-b3-traceid
+  health:
+    circuitbreakers:
+      enabled: true
+    # Desactivar Redis health check
+    redis:
+      enabled: false
+
+# Configuración específica para Azure Application Insights
+azure:
+  application-insights:
+    instrumentation-key: ${APPLICATIONINSIGHTS_CONNECTION_STRING:}
+    enabled: ${APPLICATIONINSIGHTS_ENABLED:true}
+    web:
+      enabled: true
+    micrometer:
+      enabled: true

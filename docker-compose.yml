@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: appigle-gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-azure}
+      # Eliminamos configuración de Eureka ya que no se usará en Azure
+      - JWT_SECRET=${JWT_SECRET:-changeThisToARealSecretInProduction}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - gateway-logs:/logs
+      - gateway-config:/config
+    networks:
+      - appigle-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+# Eliminar o comentar el servicio redis completamente
+#  redis:
+#    image: redis:7.0-alpine
+#    container_name: appigle-redis
+#    command: redis-server --requirepass ${REDIS_PASSWORD:-redispassword}
+#    ports:
+#      - "${REDIS_PORT:-6379}:6379"
+#    volumes:
+#      - redis-data:/data
+#    networks:
+#      - appigle-network
+#    restart: unless-stopped
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispassword}", "ping"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 3
+
+  # Servicios de observabilidad (opcionales para desarrollo, recomendados para producción)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: appigle-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - appigle-network
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: appigle-grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    networks:
+      - appigle-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+networks:
+  appigle-network:
+    driver: bridge
+
+volumes:
+#  redis-data:  # Eliminar esta línea
+#    driver: local
+  gateway-logs:
+    driver: local
+  gateway-config:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

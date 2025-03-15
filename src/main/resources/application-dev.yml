@@ -1,0 +1,149 @@
+# application-dev.yml
+# Configuraciones específicas para el entorno de desarrollo.
+# Este archivo sobrescribe valores del application.yml cuando se activa el perfil 'dev'.
+
+# Configuración de servidor para desarrollo
+server:
+  port: 8092
+  error:
+    include-stacktrace: always
+    include-message: always
+    include-binding-errors: always
+
+# Configuraciones específicas de Spring para desarrollo
+spring:
+  # Habilitar modo de depuración para Spring Security
+  security:
+    debug: true
+  
+  # Configuración de Redis para desarrollo local
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:  # Sin contraseña en desarrollo
+  
+  # Configuración del Gateway para desarrollo
+  cloud:
+    gateway:
+      httpclient:
+        wiretap: true  # Habilitar logging detallado de peticiones HTTP
+      webflux:
+        wiretap: true  # Habilitar logging detallado de WebFlux
+  
+  # Desactivar caché durante desarrollo
+  cache:
+    type: none
+  
+  # Refrescar configuración automáticamente durante desarrollo
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+    livereload:
+      enabled: true
+
+# Configuración de seguridad para desarrollo - Sección unificada
+security:
+  jwt:
+    # Usar una clave de desarrollo predecible
+    secret: dev_secret_key_for_jwt_should_be_at_least_32_chars_long
+    # Expiración corta para facilitar pruebas
+    access-token:
+      expiration: 3600  # 1 hora
+  # Configuración de CORS específica para desarrollo
+  cors:
+    allowed-origins: >
+      http://localhost:3000,
+      http://localhost:4200,
+      http://localhost:8080,
+      http://localhost:8092,
+      http://localhost:*
+
+# Configuración de métricas para desarrollo
+metrics:
+  include-exact-path: true  # Más detalle en métricas para desarrollo
+  enable-size-metrics: true
+
+# Configuración de resiliencia para desarrollo
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        # Valores más sensibles para detectar fallos rápidamente en desarrollo
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 2
+        waitDurationInOpenState: 5s
+  
+  # Timeouts más cortos en desarrollo para detectar problemas rápidamente
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+
+# Configuración de rate limiting más permisiva para desarrollo
+rate-limiting:
+  enabled: true
+  default-limit-for-authenticated: 1000  # Más alto para no bloquear desarrollo
+  default-limit-for-anonymous: 500
+
+# Configuración de logging para desarrollo
+logging:
+  level:
+    root: INFO
+    com.appigle.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    reactor.netty: DEBUG
+    io.github.resilience4j: DEBUG
+    org.springframework.boot.actuate: DEBUG
+    org.springframework.data.redis: DEBUG
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} - %msg%n"
+  file:
+    path: ./logs/
+    name: ./logs/appigle-gateway-dev.log
+
+# Configuración de monitoreo para desarrollo
+management:
+  endpoint:
+    health:
+      show-details: always  # Mostrar detalles completos de salud en desarrollo
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Exponer todos los endpoints de actuator en desarrollo
+  tracing:
+    sampling:
+      probability: 1.0  # Capturar todas las trazas en desarrollo
+
+# Configuración de documentación API para desarrollo
+springdoc:
+  show-actuator: true  # Mostrar endpoints de actuator en Swagger
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+    display-request-duration: true
+
+# Configuración de fallback para desarrollo
+fallback:
+  detailed-errors: true  # Mostrar errores detallados en desarrollo
+  default-retry-after: 5  # Tiempos de reintento más cortos para pruebas
+
+# Configuraciones específicas de prueba para entorno de desarrollo
+test:
+  # Tokens JWT predefinidos para pruebas
+  auth:
+    admin-token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    user-token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  # Cuentas predefinidas para pruebas
+  accounts:
+    admin:
+      email: admin@example.com
+      password: adminPassword123
+    user:
+      email: user@example.com
+      password: userPassword123

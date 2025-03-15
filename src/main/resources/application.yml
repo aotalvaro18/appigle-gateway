@@ -1,0 +1,342 @@
+# application.yml
+# Configuración principal del API Gateway de AppIgle
+
+# Configuración del servidor
+server:
+  port: ${SERVER_PORT:8092}
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024   # Comprimir respuestas mayores a 1KB
+  http2:
+    enabled: true             # Habilitar soporte para HTTP/2
+
+# Configuración de timeout y ciclo de vida
+spring:
+  # Permite una apagado controlado de la aplicación
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+  # Configuración para excluir la autoconfiguración de SpringDoc
+  autoconfigure:
+    exclude:
+      - org.springdoc.webflux.ui.SwaggerConfig
+      - org.springdoc.webflux.core.configuration.SpringDocWebFluxConfiguration
+
+  # Configuración del Cloud Gateway
+  cloud:
+    # Desactivar Config Server en esta config (se maneja en bootstrap.yml)
+    config:
+      enabled: false
+
+    # Configuración del Gateway
+    gateway:
+      # Filtros aplicados a todas las rutas
+      default-filters:
+        - AddResponseHeader=X-App-Version, ${APP_VERSION:v1.0.0}
+        - AddResponseHeader=X-Content-Type-Options, nosniff
+        - AddResponseHeader=X-Frame-Options, DENY
+        - AddResponseHeader=X-XSS-Protection, 1; mode=block
+        # Filtros de seguridad
+        - RemoveRequestHeader=Cookie
+        - RemoveRequestHeader=Authorization
+        # Policy de seguridad para navegadores
+        - SecureHeaders
+        # Control de timeout
+        - name: RequestTimeout
+          args:
+            timeout: 10000
+
+      # Configuración del cliente HTTP
+      httpclient:
+        connect-timeout: ${HTTP_CONNECT_TIMEOUT:2000}
+        response-timeout: ${HTTP_RESPONSE_TIMEOUT:5000}
+        pool:
+          max-connections: ${MAX_CONNECTIONS:500}
+          acquire-timeout: 5000
+          max-idle-time: 30s
+        wiretap: ${HTTP_CLIENT_WIRETAP:false}  # Habilitar solo para depuración
+
+      # Configuración de servidor web
+      webflux:
+        base-path: ${API_BASE_PATH:/}
+
+      # Configuración de observabilidad
+      metrics:
+        enabled: true
+
+      # Las rutas se configuran mediante Java en GatewayConfig
+      discovery:
+        locator:
+          enabled: ${DISCOVERY_LOCATOR_ENABLED:false}
+          lower-case-service-id: true
+
+  # Redis para rate limiting y blacklist de tokens
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      database: 0
+      # Actualizado: configuración de SSL con estructura anidada
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      # Configuración de pool de conexiones
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 1000ms
+      # Configuración de cluster para entornos de alta disponibilidad
+      # Descomentar si se usa configuración de cluster
+      #cluster:
+      #  nodes: ${REDIS_CLUSTER_NODES:localhost:6379}
+      #  max-redirects: 3
+
+  # Configuración del codec para tamaños grandes
+  codec:
+    max-in-memory-size: ${MAX_IN_MEMORY_SIZE:5MB}
+
+  # Configuración de caching
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000  # 5 minutos
+      cache-null-values: false
+
+
+# Configuración de seguridad
+security:
+  # Configuración de JWT
+  jwt:
+    secret: ${JWT_SECRET:changeThisToARealSecretWithAtLeast32CharactersLongForHS256Algorithm}
+    issuer: ${JWT_ISSUER:appigle-auth}
+    audience: ${JWT_AUDIENCE:appigle-api}
+    valid-token-types: ACCESS
+    access-token:
+      expiration: ${JWT_EXPIRATION:3600}  # 1 hora
+    token-blacklist:
+      enabled: ${TOKEN_BLACKLIST_ENABLED:true}  # Habilitado por defecto para mejor seguridad
+      time-to-live: ${TOKEN_BLACKLIST_TTL:86400}  # 24 horas
+    token-cache:
+      enabled: true
+      duration-seconds: 60
+    clock-skew-seconds: 30
+
+  # Configuración de autenticación
+  auth:
+    public-paths: >
+      /api/auth/login,
+      /api/auth/register,
+      /api/auth/refresh-token,
+      /api/email-verification/verify,
+      /actuator/health,
+      /actuator/info
+    header-prefix: X-
+    propagate-tenant-info: true
+    propagate-roles: true
+    propagate-permissions: true
+    user-id-claim: userId
+
+  # Rutas públicas para filtro de seguridad (necesario para SecurityConfig.java)
+  public-paths: >
+    /actuator/health,
+    /actuator/info,
+    /fallback/**,
+    /api/auth/login,
+    /api/auth/register,
+    /api/email-verification/verify
+
+  # Rutas para actuator
+  actuator-paths: >
+    /actuator/**
+
+  # Configuración CSRF
+  csrf:
+    enabled: false
+
+  # Configuración de Content Security Policy
+  content-security-policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+
+  # Configuración CORS
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.appigle.com,https://admin.appigle.com}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key}
+    max-age: ${CORS_MAX_AGE:3600}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+
+# Configuración de Rate Limiting
+rate-limiting:
+  enabled: ${RATE_LIMITING_ENABLED:true}
+  default-limit-for-authenticated: ${RATE_LIMIT_AUTH:50}
+  default-limit-for-anonymous: ${RATE_LIMIT_ANON:20}
+  timeout-duration: ${RATE_LIMIT_TIMEOUT:100}
+  excluded-paths: >
+    /actuator/**
+  auth-paths: /api/auth/**
+  auth-limit-for-authenticated: 20
+  auth-limit-for-anonymous: 10
+  critical-paths: /api/payments/**,/api/subscriptions/**
+  critical-limit-for-authenticated: 10
+  critical-limit-for-anonymous: 5
+
+# Configuración de Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+
+    instances:
+      authServiceCircuitBreaker:
+        baseConfig: default
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 40
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 5
+
+      contentServiceCircuitBreaker:
+        baseConfig: default
+        slidingWindowSize: 15
+        failureRateThreshold: 45
+        waitDurationInOpenState: 15s
+
+      publicApiCircuitBreaker:
+        baseConfig: default
+        slidingWindowSize: 8
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 30
+        waitDurationInOpenState: 30s
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+
+    instances:
+      authServiceCircuitBreaker:
+        timeoutDuration: 10s
+      contentServiceCircuitBreaker:
+        timeoutDuration: 12s
+      publicApiCircuitBreaker:
+        timeoutDuration: 3s
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 100ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignoreExceptions:
+          - org.springframework.security.access.AccessDeniedException
+
+    instances:
+      authServiceRetry:
+        baseConfig: default
+        maxAttempts: 3
+      contentServiceRetry:
+        baseConfig: default
+        maxAttempts: 2
+
+# Configuración de Metricas y Observabilidad
+metrics:
+  path-groups:
+    enabled: true
+    patterns: >
+      /api/auth/**=/api/auth,
+      /api/users/**=/api/users,
+      /api/content/**=/api/content,
+      /api/events/**=/api/events
+  include-exact-path: ${METRICS_INCLUDE_EXACT_PATH:false}
+  enable-size-metrics: true
+
+# Configuración de Fallbacks
+fallback:
+  default-retry-after: 30
+  detailed-errors: ${FALLBACK_DETAILED_ERRORS:true}
+
+# Configuración de Logging
+logging:
+  level:
+    root: ${ROOT_LOG_LEVEL:INFO}
+    org.springframework.cloud.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    reactor.netty: ${NETTY_LOG_LEVEL:INFO}
+    com.appigle.gateway: ${APP_LOG_LEVEL:DEBUG}
+    org.springframework.web: ${WEB_LOG_LEVEL:INFO}
+    io.github.resilience4j: ${RESILIENCE_LOG_LEVEL:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} span_id=%X{span_id} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace_id=%X{trace_id} span_id=%X{span_id} - %msg%n"
+  file:
+    name: ${LOG_FILE_PATH:logs/appigle-gateway.log}
+    max-size: ${LOG_FILE_MAX_SIZE:10MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:10}
+
+# Configuración de Monitoreo - Actualizado para usar nuevas propiedades
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,prometheus,circuitbreakers,caches,env,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: ${HEALTH_SHOW_DETAILS:always}
+      show-components: always
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: redis
+    gateway:
+      enabled: true
+    circuitbreakers:
+      enabled: true
+    prometheus:
+      enabled: true
+  # Actualizado: nueva estructura para métricas de Prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.9, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+  health:
+    circuitbreakers:
+      enabled: true
+    redis:
+      enabled: true
+    diskspace:
+      enabled: true
+  # Correcto: tracing está en la estructura actual
+  tracing:
+    enabled:
+      false
+
+# La sección springdoc ha sido eliminada completamente para resolver el problema de dependencias circulares
+# La documentación API se manejará a nivel de cada microservicio o mediante una solución externa dedicada

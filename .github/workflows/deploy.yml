@@ -1,0 +1,48 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push image to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: appigleregistry.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - run: |
+          docker build -t appigleregistry.azurecr.io/gateway:${{ github.sha }} .
+          docker push appigleregistry.azurecr.io/gateway:${{ github.sha }}
+
+      - name: Deploy to Container Apps
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az containerapp update \
+              --name appigle-gateway \
+              --resource-group appigle-dev-rg \
+              --image appigleregistry.azurecr.io/gateway:${{ github.sha }}

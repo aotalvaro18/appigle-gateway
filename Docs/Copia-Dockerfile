@@ -1,0 +1,94 @@
+# Imagen base para compilación
+FROM eclipse-temurin:17-jdk-alpine AS build
+WORKDIR /workspace/app
+
+# Instalar dependencias necesarias para compilación
+RUN apk add --no-cache curl bash
+
+# Configurar variables de entorno para Maven
+ENV MAVEN_OPTS="-Xmx512m -XX:+UseG1GC"
+
+# Copiar archivos de Maven y dependencias primero para aprovechar la caché de capas
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+
+# Descargar dependencias para aprovechar la caché
+RUN ./mvnw dependency:go-offline -B
+
+# Copiar código fuente
+COPY src src
+
+# Compilar la aplicación - Sin usar el perfil azure
+RUN ./mvnw package -DskipTests
+
+# Verificar el JAR (esto funciona en la etapa build, donde existe target/)
+RUN echo "Verificando el contenido del JAR..."
+RUN ls -la target/*.jar
+RUN mkdir -p target/dependency && (cd target/dependency; jar -xf ../*.jar)
+
+# Imagen base para ejecución
+FROM eclipse-temurin:17-jre-alpine AS runtime
+
+# Etiquetas estándar - VERSIÓN ACTUALIZADA A 1.3.2
+LABEL maintainer="AppIgle Development Team <dev@appigle.com>"
+LABEL version="1.3.2"
+LABEL description="API Gateway for AppIgle microservices on Azure Container Apps"
+
+# Variable de entorno para versión
+ENV APP_VERSION="1.3.2"
+
+# Instalar herramientas útiles para contenedor en Azure
+RUN apk add --no-cache curl tzdata wget busybox-extras && \
+    # Usar UTC para Azure es más consistente con timestamps
+    cp /usr/share/zoneinfo/UTC /etc/localtime && \
+    echo "UTC" > /etc/timezone && \
+    apk del tzdata
+
+# Crear un usuario no root para ejecutar la aplicación
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+# Crear directorios necesarios - adaptados para entornos cloud
+RUN mkdir -p /app /logs /config /tmp/uploads
+RUN chown -R appuser:appuser /app /logs /config /tmp/uploads
+
+# Configurar variables de entorno optimizadas para contenedor
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/logs/heapdump.bin"
+ENV SPRING_PROFILES_ACTIVE="azure"
+ENV SERVER_PORT=8092
+
+# Volúmenes para logs y configuración
+VOLUME ["/logs", "/config"]
+
+# Copiar la aplicación desde la etapa de compilación
+ARG DEPENDENCY=/workspace/app/target/dependency
+COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
+COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
+COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
+
+# Verificar contenido en la imagen final
+RUN echo "Verificando el contenido de /app:"
+RUN ls -la /app
+RUN echo "Verificando el contenido de /app/lib:"
+RUN ls -la /app/lib | head -n 10
+
+# Copiar script de entrada actualizado para Azure
+COPY docker-entrypoint.sh /
+
+# Configurar permisos
+RUN chmod +x /docker-entrypoint.sh
+RUN chown -R appuser:appuser /app /docker-entrypoint.sh
+
+# Cambiar al usuario no privilegiado
+USER appuser
+
+# Exponer puerto
+EXPOSE 8092
+
+# Healthcheck para Azure Container Apps
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8092/actuator/health || exit 1
+
+# Punto de entrada
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["java", "-cp", "app:app/lib/*", "com.appigle.gateway.AppigleGatewayApplication"]
