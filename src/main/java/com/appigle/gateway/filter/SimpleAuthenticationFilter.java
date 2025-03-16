@@ -40,9 +40,8 @@ public class SimpleAuthenticationFilter implements WebFilter {
             "/api/auth/login",
             "/api/auth/register",
             "/fallback",
-            "/api/email-verification/verify",
-            "/api/system/keyvault-status");  // Agregamos esta línea
-
+            "/api/email-verification/verify");
+            
     @Autowired
     public SimpleAuthenticationFilter(SimpleJwtValidator jwtValidator) {
         this.jwtValidator = jwtValidator;
