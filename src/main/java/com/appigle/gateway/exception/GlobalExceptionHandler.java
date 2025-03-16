@@ -1,6 +1,5 @@
 package com.appigle.gateway.exception;
 
-import com.appigle.gateway.security.JwtValidator.JwtValidationException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -96,8 +95,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
             statusCode = HttpStatus.UNAUTHORIZED;
             errorResponse = errorResponseBuilder.buildTokenExpiredError(path);
             logger.info("Token expirado en ruta: {}", path);
-        } else if (ex instanceof JwtValidationException 
-                || ex instanceof MalformedJwtException 
+        } else if (ex instanceof MalformedJwtException 
                 || ex instanceof UnsupportedJwtException 
                 || ex instanceof SignatureException) {
             // Problemas con el token JWT

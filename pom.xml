@@ -131,6 +131,13 @@
             <version>2.6.4</version>
         </dependency>
 
+        <!-- Azure Key Vault Integration -->
+        <dependency>
+            <groupId>com.azure.spring</groupId>
+            <artifactId>spring-cloud-azure-starter-keyvault-secrets</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+
         <!-- Resilience patterns (Circuit Breaker, Bulkhead, Retry, etc.) -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

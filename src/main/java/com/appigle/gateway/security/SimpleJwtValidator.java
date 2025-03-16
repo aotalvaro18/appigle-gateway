@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Validar tokens JWT
  * - Extraer información de usuario de los tokens
  * - Implementar caché para mejorar rendimiento
+ * - Integración con Azure Key Vault para obtener el secreto JWT
  */
 @Component
 @Profile("azure-recovery")
@@ -37,11 +38,18 @@ public class SimpleJwtValidator {
     /**
      * Constructor que configura el validador con la clave secreta.
      * 
-     * @param secret Clave secreta para verificar firmas JWT
+     * La clave se obtiene de Azure Key Vault si está configurado,
+     * o de las propiedades locales como fallback.
+     * 
+     * @param secret Clave secreta para verificar firmas JWT, obtenida automáticamente
+     *              de Azure Key Vault usando el nombre "jwt-secret"
      */
-    public SimpleJwtValidator(@Value("${jwt.secret:defaultSecretKeyForDevelopmentOnly}") String secret) {
-        logger.info("Inicializando validador JWT");
+    public SimpleJwtValidator(@Value("${jwt-secret:defaultSecretKeyForDevelopmentOnly}") String secret) {
+        logger.info("Inicializando validador JWT con secreto de Key Vault");
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        
+        // No imprimimos el secreto por seguridad, solo confirmamos que se ha inicializado
+        logger.debug("Secreto JWT inicializado correctamente, longitud: {}", secret.length());
     }
     
     /**
