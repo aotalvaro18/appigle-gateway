@@ -124,11 +124,12 @@
             <artifactId>micrometer-observation</artifactId>
         </dependency>
 
-        <!-- Application Insights -->
+        <!-- En lugar de Application Insights USAREMOS: -->
+        <!-- Azure Monitor con OpenTelemetry (versión actual) -->
         <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>applicationinsights-spring-boot-starter</artifactId>
-            <version>2.6.4</version>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-monitor-opentelemetry-autoconfigure</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
         <!-- Azure Key Vault Integration -->
