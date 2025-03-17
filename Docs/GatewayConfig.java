@@ -91,7 +91,6 @@ public class GatewayConfig {
      * @return RedisRateLimiter configurado para auth_service
      */
     @Bean
-    @ConditionalOnProperty(name = "spring.redis.host") //quitar en PRODUCCION AZURE
     public RedisRateLimiter authServiceRateLimiter() {
         // 20 tokens por segundo, burst de 40
         return new RedisRateLimiter(20, 40);
@@ -103,7 +102,7 @@ public class GatewayConfig {
      * @return RedisRateLimiter con configuración estándar
      */
     @Bean
-    @ConditionalOnProperty(name = "spring.redis.host") //quitar en PRODUCCION AZURE
+    
     @Primary  // Para inyectar un RateLimiter en requestRateLimiterGatewayFilterFactory
     public RedisRateLimiter defaultRateLimiter() {
         // 10 tokens por segundo, burst de 20
@@ -118,7 +117,7 @@ public class GatewayConfig {
      * @return RedisRateLimiter para APIs públicas
      */
     @Bean
-    @ConditionalOnProperty(name = "spring.redis.host") //quitar en PRODUCCION AZURE
+    
     public RedisRateLimiter publicApiRateLimiter() {
         // 5 tokens por segundo, burst de 10
         return new RedisRateLimiter(5, 10);

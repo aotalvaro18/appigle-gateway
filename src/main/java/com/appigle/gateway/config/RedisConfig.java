@@ -1,5 +1,3 @@
-/*
-
 package com.appigle.gateway.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,14 +12,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Configuración para Redis reactivo.
- 
+**/
+
 @Configuration
 public class RedisConfig {
 
     /**
      * Configura un ReactiveRedisTemplate para operaciones con String/String
      * utilizando la factory proporcionada por la autoconfiguración de Spring Boot.
-     
+     **/
+
     @Bean
     @Primary
     @ConditionalOnProperty(name = "rate-limiting.redis-based", havingValue = "true")
@@ -42,4 +42,3 @@ public class RedisConfig {
         return new ReactiveRedisTemplate<>(connectionFactory, serializationContext);
     }
 }
-*/

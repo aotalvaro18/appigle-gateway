@@ -33,22 +33,22 @@ services:
           memory: 256M
 
 # Eliminar o comentar el servicio redis completamente
-#  redis:
-#    image: redis:7.0-alpine
-#    container_name: appigle-redis
-#    command: redis-server --requirepass ${REDIS_PASSWORD:-redispassword}
-#    ports:
-#      - "${REDIS_PORT:-6379}:6379"
-#    volumes:
-#      - redis-data:/data
-#    networks:
-#      - appigle-network
-#    restart: unless-stopped
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispassword}", "ping"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 3
+  redis:
+    image: redis:7.0-alpine
+    container_name: appigle-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispassword}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - appigle-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispassword}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Servicios de observabilidad (opcionales para desarrollo, recomendados para producción)
   prometheus:
@@ -94,8 +94,8 @@ networks:
     driver: bridge
 
 volumes:
-#  redis-data:  # Eliminar esta línea
-#    driver: local
+  redis-data:  # Eliminar esta línea
+    driver: local
   gateway-logs:
     driver: local
   gateway-config:

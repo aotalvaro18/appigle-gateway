@@ -71,21 +71,21 @@ spring:
 
   # Configuración específica de Redis para Azure Cache for Redis
   # Comentado ya que no se utilizará Redis por ahora
-  # data:
-  #  redis:
-  #    host: ${REDIS_HOST:localhost}
-  #    port: ${REDIS_PORT:6380}  # Puerto por defecto para Azure Redis con SSL
-  #    password: ${REDIS_PASSWORD:}
-  #    ssl:
-  #      enabled: true    # Habilitar SSL para Azure Redis
-  #    timeout: 3000ms  # Aumentado para entornos cloud
-  #    database: 0
-  #    lettuce:
-  #      pool:
-  #        max-active: 32  # Valores aumentados para mejor rendimiento en Azure
-  #        max-idle: 16
-  #        min-idle: 8
-  #        max-wait: 2000ms
+   data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}  # Puerto por defecto para Azure Redis con SSL
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: true    # Habilitar SSL para Azure Redis
+      timeout: 3000ms  # Aumentado para entornos cloud
+      database: 0
+      lettuce:
+        pool:
+          max-active: 32  # Valores aumentados para mejor rendimiento en Azure
+          max-idle: 16
+          min-idle: 8
+          max-wait: 2000ms
 
   # Configuración de codec para tamaños grandes
   codec:

@@ -2,7 +2,7 @@ package com.appigle.gateway.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+//import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Gestiona una lista negra de tokens JWT revocados.
  */
 @Component
-@ConditionalOnProperty(name = "spring.redis.host") //quitar en PRODUCCION AZURE
+
 public class TokenBlacklist {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
