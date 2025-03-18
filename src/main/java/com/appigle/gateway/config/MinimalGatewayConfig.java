@@ -14,8 +14,7 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 public class MinimalGatewayConfig {
     
     @Bean
-    // Eliminar la anotación @Primary
-    public RouteLocator minimalGatewayRoutes(  // Cambiar el nombre del método
+    public RouteLocator minimalGatewayRoutes(  
             RouteLocatorBuilder builder,
             KeyResolver ipKeyResolver,
             RedisRateLimiter memoryRateLimiter) {

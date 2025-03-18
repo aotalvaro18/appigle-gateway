@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppIgle API Gateway - Dashboard Simplificado</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f7f9fc;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    .summary-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 1.2em;
+      color: #3498db;
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .metric-box {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .metric-label {
+      font-size: 0.9em;
+      color: #7f8c8d;
+    }
+    .chart-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .chart-title {
+      font-size: 1.2em;
+      color: #3498db;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .success { color: #27ae60; }
+    .warning { color: #f39c12; }
+    .error { color: #e74c3c; }
+    .file-input {
+      margin: 20px 0;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .file-input label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .file-input input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: #f1f1f1;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      margin-right: 5px;
+    }
+    .tab.active {
+      background: white;
+      border-bottom: 2px solid #3498db;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      padding: 20px;
+      color: #7f8c8d;
+      font-size: 0.9em;
+    }
+    .recommendation {
+      background: #e8f4f8;
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    .alert {
+      background: #ffe8dc;
+      border-left: 4px solid #e74c3c;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AppIgle API Gateway - Dashboard de Prueba Baseline</h1>
+      <p>Visualización simplificada de resultados de pruebas de carga</p>
+    </header>
+
+    <div class="file-input">
+      <label for="csvFile">Cargar archivo CSV de resultados:</label>
+      <input type="file" id="csvFile" accept=".csv">
+      <div id="loader" class="loader"></div>
+    </div>
+
+    <div id="recommendations" class="summary-card" style="display: none;">
+      <h2 class="card-title">Recomendaciones</h2>
+      <div id="recommendationsList"></div>
+    </div>
+
+    <div id="alerts" class="summary-card" style="display: none;">
+      <h2 class="card-title">Alertas</h2>
+      <div id="alertsList"></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="openTab(event, 'summaryTab')">Resumen</button>
+      <button class="tab" onclick="openTab(event, 'responseTimeTab')">Tiempos de Respuesta</button>
+      <button class="tab" onclick="openTab(event, 'errorTab')">Errores</button>
+      <button class="tab" onclick="openTab(event, 'rateLimitTab')">Rate Limiting</button>
+    </div>
+
+    <div id="summaryTab" class="tab-content active">
+      <div class="summary-card">
+        <h2 class="card-title">Resumen de Resultados</h2>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <div id="totalRequests" class="metric-value">-</div>
+            <div class="metric-label">Total de Solicitudes</div>
+          </div>
+          <div class="metric-box">
+            <div id="avgResponseTime" class="metric-value">-</div>
+            <div class="metric-label">Tiempo de Respuesta Promedio (ms)</div>
+          </div>
+          <div class="metric-box">
+            <div id="p95ResponseTime" class="metric-value">-</div>
+            <div class="metric-label">P95 Tiempo de Respuesta (ms)</div>
+          </div>
+          <div class="metric-box">
+            <div id="errorRate" class="metric-value">-</div>
+            <div class="metric-label">Tasa de Error (%)</div>
+          </div>
+          <div class="metric-box">
+            <div id="rateLimitRate" class="metric-value">-</div>
+            <div class="metric-label">Tasa de Rate Limiting (%)</div>
+          </div>
+          <div class="metric-box">
+            <div id="maxRPS" class="metric-value">-</div>
+            <div class="metric-label">RPS Máximo</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">Solicitudes por Segundo</h3>
+        <canvas id="requestsChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">Distribución de Tipos de Solicitud</h3>
+        <canvas id="requestTypeChart"></canvas>
+      </div>
+    </div>
+
+    <div id="responseTimeTab" class="tab-content">
+      <div class="chart-container">
+        <h3 class="chart-title">Tiempos de Respuesta a lo Largo del Tiempo</h3>
+        <canvas id="responseTimeChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">Distribución de Tiempos de Respuesta</h3>
+        <canvas id="responseTimeDistribution"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">Tiempos de Respuesta por Tipo de Solicitud</h3>
+        <canvas id="requestTypeResponseTimeChart"></canvas>
+      </div>
+    </div>
+
+    <div id="errorTab" class="tab-content">
+      <div class="chart-container">
+        <h3 class="chart-title">Tasa de Error a lo Largo del Tiempo</h3>
+        <canvas id="errorRateChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">Activaciones de Circuit Breaker</h3>
+        <canvas id="circuitBreakerChart"></canvas>
+      </div>
+    </div>
+
+    <div id="rateLimitTab" class="tab-content">
+      <div class="chart-container">
+        <h3 class="chart-title">Solicitudes Limitadas por Rate Limit</h3>
+        <canvas id="rateLimitChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>AppIgle API Gateway - Dashboard de Pruebas de Carga</p>
+    <p>v1.0 - Simplificado para prueba baseline</p>
+  </footer>
+
+  <script>
+    // Función para abrir pestañas
+    function openTab(evt, tabName) {
+      const tabContent = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContent.length; i++) {
+        tabContent[i].className = tabContent[i].className.replace(" active", "");
+      }
+      const tabLinks = document.getElementsByClassName("tab");
+      for (let i = 0; i < tabLinks.length; i++) {
+        tabLinks[i].className = tabLinks[i].className.replace(" active", "");
+      }
+      document.getElementById(tabName).className += " active";
+      evt.currentTarget.className += " active";
+    }
+
+    // Variables para almacenar datos
+    let testData = {
+      timestamps: [],
+      responseTime: [],
+      throughput: [],
+      errorRate: [],
+      rateLimit: [],
+      circuitBreaker: [],
+      metrics: {},
+      requestTypes: {}
+    };
+
+    // Función para cargar y procesar datos CSV
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      // Mostrar loader
+      document.getElementById('loader').style.display = 'block';
+      
+      // Resetear datos
+      testData = {
+        timestamps: [],
+        responseTime: [],
+        throughput: [],
+        errorRate: [],
+        rateLimit: [],
+        circuitBreaker: [],
+        metrics: {},
+        requestTypes: {}
+      };
+      
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (results.errors.length > 0) {
+            console.error("Errores al parsear CSV:", results.errors);
+            document.getElementById('loader').style.display = 'none';
+            return;
+          }
+          
+          // Procesar datos
+          processTestData(results.data);
+          
+          // Actualizar la interfaz
+          updateDashboard();
+          
+          // Ocultar loader
+          document.getElementById('loader').style.display = 'none';
+          
+          // Generar recomendaciones
+          generateRecommendations();
+          
+          // Detectar alertas
+          detectAlerts();
+        }
+      });
+    });
+
+    // Procesar datos de prueba
+    function processTestData(data) {
+      // Crear mapeo de timestamps para alinear datos
+      const timestampMap = {};
+      
+      data.forEach(row => {
+        // Convertir timestamp a formato legible
+        const timestamp = new Date(row.timestamp || row.time || row.metric_time).toISOString();
+        
+        if (!timestampMap[timestamp]) {
+          timestampMap[timestamp] = {
+            timestamp,
+            responseTime: [],
+            tags: {},
+            status: {},
+            rateLimit: 0,
+            circuitBreaker: 0,
+            count: 0
+          };
+        }
+        
+        // Agrupar por tipo de solicitud
+        let tag = 'unknown';
+        if (row.tags) {
+          try {
+            const tagObj = JSON.parse(row.tags);
+            tag = tagObj.name || 'unknown';
+          } catch (e) {
+            tag = row.tags || 'unknown';
+          }
+        } else if (row.metric_name) {
+          tag = row.metric_name;
+        }
+        
+        if (!timestampMap[timestamp].tags[tag]) {
+          timestampMap[timestamp].tags[tag] = 0;
+        }
+        timestampMap[timestamp].tags[tag]++;
+        
+        // Agrupar por status
+        const status = row.status || row.response_status || row.error_code;
+        if (status) {
+          if (!timestampMap[timestamp].status[status]) {
+            timestampMap[timestamp].status[status] = 0;
+          }
+          timestampMap[timestamp].status[status]++;
+        }
+        
+        // Recopilar tiempos de respuesta
+        if (row.response_time || row.elapsed || row.metric_value) {
+          timestampMap[timestamp].responseTime.push(
+            row.response_time || row.elapsed || row.metric_value
+          );
+        }
+        
+        // Contar solicitudes rate limited (429)
+        if (status === 429 || (row.metric_name && row.metric_name === 'rate_limited_requests')) {
+          timestampMap[timestamp].rateLimit++;
+        }
+        
+        // Contar circuit breaker trips (503 con mensaje específico)
+        if (status === 503 || (row.metric_name && row.metric_name === 'circuit_breaker_trips')) {
+          timestampMap[timestamp].circuitBreaker++;
+        }
+        
+        timestampMap[timestamp].count++;
+      });
+      
+      // Convertir mapeo a arrays para gráficos
+      const timestamps = Object.keys(timestampMap).sort();
+      
+      testData.timestamps = timestamps.map(ts => {
+        const date = new Date(ts);
+        return date.toLocaleTimeString();
+      });
+      
+      // Procesar tiempos de respuesta
+      testData.responseTime = timestamps.map(ts => {
+        const values = timestampMap[ts].responseTime;
+        return values.length ?
+          values.reduce((sum, val) => sum + val, 0) / values.length :
+          null;
+      });
+      
+      // Calcular throughput (RPS)
+      const intervalSec = 1; // Asumir que los datos están agrupados por segundo
+      testData.throughput = timestamps.map(ts =>
+        timestampMap[ts].count / intervalSec
+      );
+      
+      // Calcular tasa de error
+      testData.errorRate = timestamps.map(ts => {
+        const total = timestampMap[ts].count;
+        let errors = 0;
+        
+        Object.keys(timestampMap[ts].status).forEach(status => {
+          if (parseInt(status) >= 400) {
+            errors += timestampMap[ts].status[status];
+          }
+        });
+        
+        return total > 0 ? (errors / total) * 100 : 0;
+      });
+      
+      // Datos de rate limiting
+      testData.rateLimit = timestamps.map(ts =>
+        timestampMap[ts].rateLimit
+      );
+      
+      // Datos de circuit breaker
+      testData.circuitBreaker = timestamps.map(ts =>
+        timestampMap[ts].circuitBreaker
+      );
+      
+      // Calcular métricas generales
+      const allResponseTimes = [];
+      let totalRequests = 0;
+      let totalErrors = 0;
+      let totalRateLimited = 0;
+      
+      timestamps.forEach(ts => {
+        totalRequests += timestampMap[ts].count;
+        allResponseTimes.push(...timestampMap[ts].responseTime);
+        
+        Object.keys(timestampMap[ts].status).forEach(status => {
+          if (parseInt(status) >= 400) {
+            totalErrors += timestampMap[ts].status[status];
+          }
+          if (parseInt(status) === 429) {
+            totalRateLimited += timestampMap[ts].status[status];
+          }
+        });
+      });
+      
+      // Calcular métricas
+      testData.metrics = {
+        totalRequests,
+        avgResponseTime: allResponseTimes.length ?
+          Math.round(allResponseTimes.reduce((sum, val) => sum + val, 0) / allResponseTimes.length) :
+          0,
+        p95ResponseTime: allResponseTimes.length ?
+          calculatePercentile(allResponseTimes, 95) :
+          0,
+        errorRate: totalRequests > 0 ?
+          ((totalErrors / totalRequests) * 100).toFixed(2) :
+          0,
+        rateLimitRate: totalRequests > 0 ?
+          ((totalRateLimited / totalRequests) * 100).toFixed(2) :
+          0,
+        maxRPS: Math.max(...testData.throughput).toFixed(1)
+      };
+      
+      // Recopilar tipos de solicitud
+      const requestTypes = {};
+      
+      timestamps.forEach(ts => {
+        Object.keys(timestampMap[ts].tags).forEach(tag => {
+          if (!requestTypes[tag]) {
+            requestTypes[tag] = 0;
+          }
+          requestTypes[tag] += timestampMap[ts].tags[tag];
+        });
+      });
+      
+      testData.requestTypes = requestTypes;
+    }
+
+    // Función para calcular percentiles
+    function calculatePercentile(array, percentile) {
+      if (array.length === 0) return 0;
+      array.sort((a, b) => a - b);
+      const index = Math.ceil((percentile / 100) * array.length) - 1;
+      return Math.round(array[index]);
+    }
+
+    // Actualizar dashboard con los datos procesados
+    function updateDashboard() {
+      // Actualizar resumen de métricas
+      document.getElementById('totalRequests').textContent = testData.metrics.totalRequests.toLocaleString();
+      document.getElementById('avgResponseTime').textContent = testData.metrics.avgResponseTime;
+      document.getElementById('p95ResponseTime').textContent = testData.metrics.p95ResponseTime;
+      document.getElementById('errorRate').textContent = `${testData.metrics.errorRate}%`;
+      document.getElementById('rateLimitRate').textContent = `${testData.metrics.rateLimitRate}%`;
+      document.getElementById('maxRPS').textContent = testData.metrics.maxRPS;
+      
+      // Aplicar colores según los valores
+      colorizeMetric('errorRate', 3, 5);
+      colorizeMetric('rateLimitRate', 5, 10);
+      colorizeMetric('p95ResponseTime', 1000, 1500);
+      
+      // Crear gráficos
+      createRequestsChart();
+      createRequestTypeChart();
+      createResponseTimeChart();
+      createResponseTimeDistribution();
+      createRequestTypeResponseTimeChart();
+      createErrorRateChart();
+      createCircuitBreakerChart();
+      createRateLimitChart();
+    }
+
+    // Colorear métricas según umbrales
+    function colorizeMetric(id, warningThreshold, errorThreshold) {
+      const element = document.getElementById(id);
+      const value = parseFloat(element.textContent);
+      
+      if (value < warningThreshold) {
+        element.className = 'metric-value success';
+      } else if (value < errorThreshold) {
+        element.className = 'metric-value warning';
+      } else {
+        element.className = 'metric-value error';
+      }
+    }
+
+    // Crear gráfico de solicitudes por segundo
+    function createRequestsChart() {
+      const ctx = document.getElementById('requestsChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.requestsChart) {
+        window.requestsChart.destroy();
+      }
+      
+      window.requestsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: testData.timestamps,
+          datasets: [{
+            label: 'Solicitudes por Segundo',
+            data: testData.throughput,
+            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+            borderColor: 'rgba(52, 152, 219, 1)',
+            borderWidth: 1,
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'RPS'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Tiempo'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Rendimiento a lo Largo del Tiempo'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de tipos de solicitud
+    function createRequestTypeChart() {
+      const ctx = document.getElementById('requestTypeChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.requestTypeChart) {
+        window.requestTypeChart.destroy();
+      }
+      
+      const labels = Object.keys(testData.requestTypes);
+      const data = labels.map(key => testData.requestTypes[key]);
+      
+      window.requestTypeChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Solicitudes',
+            data: data,
+            backgroundColor: [
+              'rgba(52, 152, 219, 0.6)',
+              'rgba(46, 204, 113, 0.6)',
+              'rgba(155, 89, 182, 0.6)',
+              'rgba(52, 73, 94, 0.6)',
+              'rgba(243, 156, 18, 0.6)'
+            ],
+            borderColor: [
+              'rgba(52, 152, 219, 1)',
+              'rgba(46, 204, 113, 1)',
+              'rgba(155, 89, 182, 1)',
+              'rgba(52, 73, 94, 1)',
+              'rgba(243, 156, 18, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: 'Distribución de Tipos de Solicitud'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de tiempos de respuesta
+    function createResponseTimeChart() {
+      const ctx = document.getElementById('responseTimeChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.responseTimeChart) {
+        window.responseTimeChart.destroy();
+      }
+      
+      window.responseTimeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: testData.timestamps,
+          datasets: [{
+            label: 'Tiempo de Respuesta (ms)',
+            data: testData.responseTime,
+            backgroundColor: 'rgba(46, 204, 113, 0.2)',
+            borderColor: 'rgba(46, 204, 113, 1)',
+            borderWidth: 1,
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Tiempo (ms)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Tiempo'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Tiempos de Respuesta a lo Largo del Tiempo'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de distribución de tiempos de respuesta
+    function createResponseTimeDistribution() {
+      const ctx = document.getElementById('responseTimeDistribution').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.responseTimeDistribution) {
+        window.responseTimeDistribution.destroy();
+      }
+      
+      // Crear buckets para histograma
+      const responseTimes = testData.responseTime.filter(t => t !== null);
+      
+      if (responseTimes.length === 0) {
+        console.log("No hay datos de tiempo de respuesta para crear la distribución");
+        return;
+      }
+      
+      const min = Math.min(...responseTimes);
+      const max = Math.max(...responseTimes);
+      const bucketCount = 10;
+      const bucketSize = (max - min) / bucketCount;
+      
+      const buckets = Array(bucketCount).fill(0);
+      const bucketLabels = [];
+      
+      for (let i = 0; i < bucketCount; i++) {
+        const low = min + (i * bucketSize);
+        const high = min + ((i + 1) * bucketSize);
+        bucketLabels.push(`${Math.round(low)}-${Math.round(high)} ms`);
+      }
+      
+      responseTimes.forEach(time => {
+        const bucketIndex = Math.min(
+          Math.floor((time - min) / bucketSize),
+          bucketCount - 1
+        );
+        buckets[bucketIndex]++;
+      });
+      
+      window.responseTimeDistribution = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: bucketLabels,
+          datasets: [{
+            label: 'Número de Solicitudes',
+            data: buckets,
+            backgroundColor: 'rgba(46, 204, 113, 0.6)',
+            borderColor: 'rgba(46, 204, 113, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Número de Solicitudes'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Distribución de Tiempos de Respuesta'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de tiempos de respuesta por tipo de solicitud
+    function createRequestTypeResponseTimeChart() {
+      const ctx = document.getElementById('requestTypeResponseTimeChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.requestTypeResponseTimeChart) {
+        window.requestTypeResponseTimeChart.destroy();
+      }
+      
+      // En este ejemplo simplificado, usamos datos ficticios
+      // En un dashboard real, necesitaríamos procesar esto desde los datos
+      const labels = Object.keys(testData.requestTypes);
+      const data = labels.map(key => {
+        // Simulamos diferentes tiempos de respuesta por tipo
+        if (key.includes('auth')) return testData.metrics.avgResponseTime * 1.2;
+        if (key.includes('profile')) return testData.metrics.avgResponseTime * 0.8;
+        return testData.metrics.avgResponseTime;
+      });
+      
+      window.requestTypeResponseTimeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Tiempo de Respuesta Promedio (ms)',
+            data: data,
+            backgroundColor: 'rgba(155, 89, 182, 0.6)',
+            borderColor: 'rgba(155, 89, 182, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Tiempo (ms)'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Tiempos de Respuesta por Tipo de Solicitud'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de tasa de error
+    function createErrorRateChart() {
+      const ctx = document.getElementById('errorRateChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.errorRateChart) {
+        window.errorRateChart.destroy();
+      }
+      
+      window.errorRateChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: testData.timestamps,
+          datasets: [{
+            label: 'Tasa de Error (%)',
+            data: testData.errorRate,
+            backgroundColor: 'rgba(231, 76, 60, 0.2)',
+            borderColor: 'rgba(231, 76, 60, 1)',
+            borderWidth: 1,
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Tasa de Error (%)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Tiempo'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Tasa de Error a lo Largo del Tiempo'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de circuit breaker
+    function createCircuitBreakerChart() {
+      const ctx = document.getElementById('circuitBreakerChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.circuitBreakerChart) {
+        window.circuitBreakerChart.destroy();
+      }
+      
+      window.circuitBreakerChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: testData.timestamps,
+          datasets: [{
+            label: 'Activaciones de Circuit Breaker',
+            data: testData.circuitBreaker,
+            backgroundColor: 'rgba(155, 89, 182, 0.2)',
+            borderColor: 'rgba(155, 89, 182, 1)',
+            borderWidth: 1,
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Número de Activaciones'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Tiempo'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Activaciones de Circuit Breaker'
+            }
+          }
+        }
+      });
+    }
+
+    // Crear gráfico de rate limiting
+    function createRateLimitChart() {
+      const ctx = document.getElementById('rateLimitChart').getContext('2d');
+      
+      // Destruir gráfico existente si lo hay
+      if (window.rateLimitChart) {
+        window.rateLimitChart.destroy();
+      }
+      
+      window.rateLimitChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: testData.timestamps,
+          datasets: [{
+            label: 'Solicitudes Rate Limited',
+            data: testData.rateLimit,
+            backgroundColor: 'rgba(243, 156, 18, 0.2)',
+            borderColor: 'rgba(243, 156, 18, 1)',
+            borderWidth: 1,
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Número de Solicitudes'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Tiempo'
+              }
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Solicitudes Limitadas por Rate Limit'
+            }
+          }
+        }
+      });
+    }
+
+    // Generar recomendaciones basadas en los resultados
+    function generateRecommendations() {
+      const recommendations = [];
+      
+      // Verificar tiempo de respuesta
+      if (testData.metrics.p95ResponseTime > 1500) {
+        recommendations.push(`
+          <div class="recommendation">
+            <strong>Optimización de Tiempo de Respuesta:</strong> El P95 del tiempo de respuesta (${testData.metrics.p95ResponseTime}ms) 
+            supera el umbral recomendado de 1500ms. Considere revisar la configuración de timeouts y optimizar 
+            los servicios con mayor latencia.
+          </div>
+        `);
+      }
+      
+      // Verificar tasa de error
+      if (testData.metrics.errorRate > 3) {
+        recommendations.push(`
+          <div class="recommendation">
+            <strong>Investigar Errores:</strong> La tasa de error (${testData.metrics.errorRate}%) 
+            es superior al 3%. Revise los logs para identificar la causa principal de los errores.
+          </div>
+        `);
+      }
+      
+      // Verificar rate limiting
+      if (testData.metrics.rateLimitRate > 5) {
+        recommendations.push(`
+          <div class="recommendation">
+            <strong>Ajustar Rate Limiting:</strong> El ${testData.metrics.rateLimitRate}% de las solicitudes 
+            están siendo limitadas por rate limiting. Considere ajustar los límites o implementar 
+            estrategias de backoff en los clientes.
+          </div>
+        `);
+      }
+      
+      // Verificar circuit breaker
+      if (testData.circuitBreaker.some(val => val > 0)) {
+        recommendations.push(`
+          <div class="recommendation">
+            <strong>Revisar Circuit Breakers:</strong> Se detectaron activaciones de circuit breaker. 
+            Revise la configuración de los circuit breakers y la capacidad de recuperación de los servicios.
+          </div>
+        `);
+      }
+      
+      // Mostrar recomendaciones si hay alguna
+      if (recommendations.length > 0) {
+        document.getElementById('recommendationsList').innerHTML = recommendations.join('');
+        document.getElementById('recommendations').style.display = 'block';
+      }
+    }
+
+    // Detectar alertas basadas en métricas
+    function detectAlerts() {
+      const alerts = [];
+      
+      // Verificar umbrales críticos
+      if (testData.metrics.errorRate > 10) {
+        alerts.push(`
+          <div class="alert">
+            <strong>Alerta Crítica:</strong> Tasa de error extremadamente alta (${testData.metrics.errorRate}%)
+          </div>
+        `);
+      }
+      
+      if (testData.metrics.p95ResponseTime > 3000) {
+        alerts.push(`
+          <div class="alert">
+            <strong>Alerta Crítica:</strong> Tiempos de respuesta muy elevados (P95: ${testData.metrics.p95ResponseTime}ms)
+          </div>
+        `);
+      }
+      
+      if (testData.metrics.rateLimitRate > 20) {
+        alerts.push(`
+          <div class="alert">
+            <strong>Alerta Crítica:</strong> Excesivo rate limiting (${testData.metrics.rateLimitRate}%)
+          </div>
+        `);
+      }
+      
+      // Mostrar alertas si hay alguna
+      if (alerts.length > 0) {
+        document.getElementById('alertsList').innerHTML = alerts.join('');
+        document.getElementById('alerts').style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

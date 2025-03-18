@@ -216,6 +216,13 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- PostgreSql dependencies -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Health Indicators -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
