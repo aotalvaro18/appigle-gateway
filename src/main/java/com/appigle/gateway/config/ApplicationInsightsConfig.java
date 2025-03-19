@@ -1,5 +1,6 @@
 package com.appigle.gateway.config;
 
+
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.TelemetryConfiguration;
 import org.slf4j.Logger;
