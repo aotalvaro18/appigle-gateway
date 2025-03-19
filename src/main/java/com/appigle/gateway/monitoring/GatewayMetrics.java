@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  * Proporciona métodos de alto nivel para registrar eventos comunes.
  */
 @Component
-@Profile("azure-recovery")
+@Profile("azure")
 public class GatewayMetrics {
 
     private final Counter totalRequestsCounter;

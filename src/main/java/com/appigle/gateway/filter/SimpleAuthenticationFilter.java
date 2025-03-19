@@ -27,7 +27,7 @@ import java.util.Map;
  * - Rechaza solicitudes no autorizadas
  */
 @Component
-@Profile("azure-recovery")
+@Profile("azure")
 public class SimpleAuthenticationFilter implements WebFilter {
     
     private static final Logger logger = LoggerFactory.getLogger(SimpleAuthenticationFilter.class);

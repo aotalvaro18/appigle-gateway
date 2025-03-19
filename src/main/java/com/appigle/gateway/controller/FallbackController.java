@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @RestController
 @RequestMapping("/fallback")
-@Profile("azure-recovery")
+@Profile("azure")
 public class FallbackController {
     
     private static final Logger logger = LoggerFactory.getLogger(FallbackController.class);

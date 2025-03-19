@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Integración con Azure Key Vault para obtener el secreto JWT
  */
 @Component
-@Profile("azure-recovery")
+@Profile("azure")
 public class SimpleJwtValidator {
     
     private static final Logger logger = LoggerFactory.getLogger(SimpleJwtValidator.class);

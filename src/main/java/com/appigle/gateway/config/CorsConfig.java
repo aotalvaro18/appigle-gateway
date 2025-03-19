@@ -20,7 +20,7 @@ import java.util.List;
  * utilizar y qué encabezados pueden incluir.
  */
 @Configuration
-@Profile("azure-recovery")
+@Profile("azure")
 public class CorsConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(CorsConfig.class);

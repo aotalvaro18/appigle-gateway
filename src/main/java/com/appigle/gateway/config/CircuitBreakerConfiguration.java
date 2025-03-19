@@ -21,7 +21,7 @@ import java.time.Duration;
  * específicas para diferentes servicios.
  */
 @Configuration
-@Profile("azure-recovery")
+@Profile("azure")
 public class CircuitBreakerConfiguration {
     
     private static final Logger logger = LoggerFactory.getLogger(CircuitBreakerConfiguration.class);

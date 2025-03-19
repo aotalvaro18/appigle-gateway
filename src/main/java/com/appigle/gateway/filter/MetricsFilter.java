@@ -39,7 +39,7 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.G
  * de la aplicación en entornos de producción.
  */
 @Component
-@Profile("azure-recovery")
+@Profile("azure")
 public class MetricsFilter implements GlobalFilter, Ordered {
     private static final Logger logger = LoggerFactory.getLogger(MetricsFilter.class);
 

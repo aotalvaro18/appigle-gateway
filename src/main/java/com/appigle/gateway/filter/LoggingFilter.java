@@ -25,7 +25,7 @@ import java.util.UUID;
  * - Detalles adicionales para errores
  */
 @Component
-@Profile("azure-recovery")
+@Profile("azure")
 public class LoggingFilter implements WebFilter, Ordered {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingFilter.class);

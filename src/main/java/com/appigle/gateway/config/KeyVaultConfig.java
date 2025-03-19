@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Profile;
  * y centralizar aspectos relacionados con Key Vault.
  */
 @Configuration
-@Profile("azure-recovery")
+@Profile("azure")
 public class KeyVaultConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(KeyVaultConfig.class);

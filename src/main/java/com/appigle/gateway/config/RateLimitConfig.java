@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
  * pero está preparado para usar Redis en producción.
  */
 @Configuration
-@Profile("azure-recovery")
+@Profile("azure")
 public class RateLimitConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(RateLimitConfig.class);
