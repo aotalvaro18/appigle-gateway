@@ -25,7 +25,7 @@ public class CorsConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(CorsConfig.class);
     
-    @Value("${security.cors.allowed-origins:https://app.appigle.com,https://admin.appigle.com}")
+    @Value("${security.cors.allowed-origins:https://app.appigle.com,https://admin.appigle.com,https://thankful-meadow-07b64540f.6.azurestaticapps.net}")
     private List<String> allowedOrigins;
     
     @Value("${security.cors.allowed-methods:GET,POST,PUT,DELETE,OPTIONS,PATCH}")
