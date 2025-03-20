@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import java.util.Map;
  * 
  * Este filtro:
  * - Permite el acceso a rutas públicas sin autenticación
+ * - Permite solicitudes OPTIONS (preflight CORS) sin autenticación
  * - Verifica tokens JWT para rutas protegidas
  * - Propaga información del usuario en headers para servicios downstream
  * - Rechaza solicitudes no autorizadas
@@ -52,6 +54,12 @@ public class SimpleAuthenticationFilter implements WebFilter {
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
+        
+        // Permitir solicitudes OPTIONS (CORS preflight) sin autenticación
+        if (request.getMethod() == HttpMethod.OPTIONS) {
+            logger.debug("Permitiendo solicitud OPTIONS (CORS preflight) para: {}", path);
+            return chain.filter(exchange);
+        }
         
         // Omitir autenticación para endpoints públicos
         if (isPublicPath(path)) {
