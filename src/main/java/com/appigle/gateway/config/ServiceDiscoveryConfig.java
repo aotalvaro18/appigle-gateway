@@ -75,7 +75,10 @@ public class ServiceDiscoveryConfig {
                     HttpHeaders headers = response.getHeaders();
                     
                     String origin = exchange.getRequest().getHeaders().getOrigin();
-                    if (origin != null && origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net")) {
+                    if (origin != null && (
+                            origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net") ||
+                            origin.equals("https://app.appigle.com") ||
+                            origin.equals("https://admin.appigle.com"))) {
                         headers.add("Access-Control-Allow-Origin", origin);
                         headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
                         headers.add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
@@ -87,8 +90,8 @@ public class ServiceDiscoveryConfig {
                     return Mono.empty();
                 }))
             .uri("no://op"))
-        
-        // Servicio de autenticación (para todas las solicitudes que no sean OPTIONS)
+            
+        // Resto de las rutas normales...
         .route("auth-service", r -> r
             .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
             .filters(f -> f
@@ -97,7 +100,7 @@ public class ServiceDiscoveryConfig {
                     .setName("authServiceCircuitBreaker")
                     .setFallbackUri("forward:/fallback/auth")))
             .uri("https://auth-service.internal." + containerAppDnsSuffix))
-        
+
             // Aquí puedes añadir más rutas para otros servicios
             // .route("content-service", r -> r
             //     .path("/api/content/**")
@@ -107,10 +110,9 @@ public class ServiceDiscoveryConfig {
             //             .setName("contentServiceCircuitBreaker")
             //             .setFallbackUri("forward:/fallback/content")))
             //     .uri("https://content-service.internal." + containerAppDnsSuffix))
-
+        
         .build();
     }
-
 
     /**
      * Configura Web Client para comunicación entre servicios en Azure.
