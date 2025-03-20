@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -55,11 +56,27 @@ public class SimpleAuthenticationFilter implements WebFilter {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
         
-        // Permitir solicitudes OPTIONS (CORS preflight) sin autenticación
-        if (request.getMethod() == HttpMethod.OPTIONS) {
-            logger.debug("Permitiendo solicitud OPTIONS (CORS preflight) para: {}", path);
-            return chain.filter(exchange);
+        // Manejar específicamente solicitudes OPTIONS para CORS
+    if (request.getMethod() == HttpMethod.OPTIONS) {
+        logger.info("Permitiendo solicitud OPTIONS para CORS en: {}", path);
+        
+        // Agregar headers CORS directamente
+        ServerHttpResponse response = exchange.getResponse();
+        String origin = request.getHeaders().getOrigin();
+        
+        if (origin != null && origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net")) {
+            response.getHeaders().add("Access-Control-Allow-Origin", origin);
+            response.getHeaders().add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
+            response.getHeaders().add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
+            response.getHeaders().add("Access-Control-Allow-Credentials", "true");
+            response.getHeaders().add("Access-Control-Max-Age", "3600");
+            response.setStatusCode(HttpStatus.OK);
+            return Mono.empty();
         }
+        
+        // Si el origen no es reconocido, continuar con la cadena
+        return chain.filter(exchange);
+    }
         
         // Omitir autenticación para endpoints públicos
         if (isPublicPath(path)) {

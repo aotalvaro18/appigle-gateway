@@ -5,8 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-// Comentamos/Eliminamos la anotación de perfil para que se aplique siempre
-// import org.springframework.context.annotation.Profile;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -28,8 +27,9 @@ import java.util.List;
  * controlando qué dominios pueden interactuar con la API, qué métodos pueden
  * utilizar y qué encabezados pueden incluir.
  */
+
 @Configuration
-// Eliminamos @Profile("azure") para que se aplique en todos los entornos
+@Profile("azure")
 public class CorsConfig {
    
     private static final Logger logger = LoggerFactory.getLogger(CorsConfig.class);
