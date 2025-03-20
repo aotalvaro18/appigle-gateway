@@ -33,7 +33,7 @@ public class InsightsDiagnostics {
             // Propiedades y métricas de prueba
             Map<String, String> properties = new HashMap<>();
             properties.put("source", "diagnostic");
-            properties.put("environment", "azure-recovery");
+            properties.put("environment", "azure");
             
             Map<String, Double> metrics = new HashMap<>();
             metrics.put("random_value", random.nextDouble() * 100);
