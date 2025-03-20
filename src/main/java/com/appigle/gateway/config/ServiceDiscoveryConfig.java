@@ -12,6 +12,13 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import reactor.core.publisher.Mono;
+
 
 /**
  * Configuración para el descubrimiento de servicios y enrutamiento en Azure Container Apps.
@@ -51,23 +58,46 @@ public class ServiceDiscoveryConfig {
      * @param builder el RouteLocatorBuilder para construir las rutas
      * @return el RouteLocator con las rutas configuradas para Azure
      */
+
     @Bean
     @Profile("azure")
     public RouteLocator azureServiceRoutes(RouteLocatorBuilder builder) {
-        logger.info("Configurando rutas para Azure Container Apps con sufijo DNS: {}", containerAppDnsSuffix);
+    logger.info("Configurando rutas para Azure Container Apps con sufijo DNS: {}", containerAppDnsSuffix);
+    
+    return builder.routes()
+        // Ruta específica para solicitudes OPTIONS (debe ir primero)
+        .route("cors-preflight", r -> r
+            .method(HttpMethod.OPTIONS)  // Solo para solicitudes OPTIONS
+            .filters(f -> f
+                .filter((exchange, chain) -> {
+                    logger.info("Manejando solicitud OPTIONS directamente en el Gateway");
+                    ServerHttpResponse response = exchange.getResponse();
+                    HttpHeaders headers = response.getHeaders();
+                    
+                    String origin = exchange.getRequest().getHeaders().getOrigin();
+                    if (origin != null && origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net")) {
+                        headers.add("Access-Control-Allow-Origin", origin);
+                        headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
+                        headers.add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
+                        headers.add("Access-Control-Allow-Credentials", "true");
+                        headers.add("Access-Control-Max-Age", "3600");
+                    }
+                    
+                    response.setStatusCode(HttpStatus.OK);
+                    return Mono.empty();
+                }))
+            .uri("no://op"))
         
-        return builder.routes()
-            // Servicio de autenticación
-            .route("auth-service", r -> r
-                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
-                .filters(f -> f
-                    .addRequestHeader("X-Forwarded-Service", "auth-service")
-                    .circuitBreaker(config -> config
-                        .setName("authServiceCircuitBreaker")
-                        .setFallbackUri("forward:/fallback/auth"))
-                )
-                .uri("https://auth-service.internal." + containerAppDnsSuffix))
-            
+        // Servicio de autenticación (para todas las solicitudes que no sean OPTIONS)
+        .route("auth-service", r -> r
+            .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+            .filters(f -> f
+                .addRequestHeader("X-Forwarded-Service", "auth-service")
+                .circuitBreaker(config -> config
+                    .setName("authServiceCircuitBreaker")
+                    .setFallbackUri("forward:/fallback/auth")))
+            .uri("https://auth-service.internal." + containerAppDnsSuffix))
+        
             // Aquí puedes añadir más rutas para otros servicios
             // .route("content-service", r -> r
             //     .path("/api/content/**")
@@ -77,10 +107,11 @@ public class ServiceDiscoveryConfig {
             //             .setName("contentServiceCircuitBreaker")
             //             .setFallbackUri("forward:/fallback/content")))
             //     .uri("https://content-service.internal." + containerAppDnsSuffix))
-            
-            .build();
+
+        .build();
     }
-    
+
+
     /**
      * Configura Web Client para comunicación entre servicios en Azure.
      * 
