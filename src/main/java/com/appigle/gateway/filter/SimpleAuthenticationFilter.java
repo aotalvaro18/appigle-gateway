@@ -38,12 +38,17 @@ public class SimpleAuthenticationFilter implements WebFilter {
     private final SimpleJwtValidator jwtValidator;
     
     private final List<String> publicPaths = List.of(
-            "/actuator/health",
-            "/actuator/info",
-            "/api/auth/login",
-            "/api/auth/register",
-            "/fallback",
-            "/api/email-verification/verify");
+    "/actuator/health",
+                "/actuator/info",
+                "/api/auth/login",
+                "/api/auth/register",
+                "/api/auth/verify-email",
+                "/api/auth/refresh-token", 
+                "/api/auth/forgot-password",
+                "/api/auth/reset-password",
+                "/api/auth/google",
+                "/fallback",
+                "/api/email-verification/verify");
             
     @Autowired
     public SimpleAuthenticationFilter(SimpleJwtValidator jwtValidator) {
