@@ -30,7 +30,7 @@ public class MinimalGatewayConfig {
                     .requestRateLimiter(config -> config
                         .setRateLimiter(memoryRateLimiter)
                         .setKeyResolver(ipKeyResolver)))
-                .uri("http://auth-service"))
+                        .uri("http://auth-service.internal.politedune-48459ced.eastus.azurecontainerapps.io:8080"))
             .route("fallback", r -> r
                 .path("/fallback/**")
                 .uri("forward:/"))
