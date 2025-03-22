@@ -15,7 +15,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-//simport org.springframework.web.server.ServerWebExchange;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import reactor.core.publisher.Mono;
 
@@ -58,50 +57,124 @@ public class ServiceDiscoveryConfig {
      * @param builder el RouteLocatorBuilder para construir las rutas
      * @return el RouteLocator con las rutas configuradas para Azure
      */
-
     @Bean
     @Profile("azure")
     public RouteLocator azureServiceRoutes(RouteLocatorBuilder builder) {
-    logger.info("Configurando rutas para Azure Container Apps con sufijo DNS: {}", containerAppDnsSuffix);
-    
-    return builder.routes()
-        // Ruta específica para solicitudes OPTIONS (debe ir primero)
-        .route("cors-preflight", r -> r
-            .method(HttpMethod.OPTIONS)  // Solo para solicitudes OPTIONS
-            .filters(f -> f
-                .filter((exchange, chain) -> {
-                    logger.info("Manejando solicitud OPTIONS directamente en el Gateway");
-                    ServerHttpResponse response = exchange.getResponse();
-                    HttpHeaders headers = response.getHeaders();
-                    
-                    String origin = exchange.getRequest().getHeaders().getOrigin();
-                    if (origin != null && (
-                            origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net") ||
-                            origin.equals("https://app.appigle.com") ||
-                            origin.equals("https://admin.appigle.com"))) {
-                        headers.add("Access-Control-Allow-Origin", origin);
-                        headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
-                        headers.add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
-                        headers.add("Access-Control-Allow-Credentials", "true");
-                        headers.add("Access-Control-Max-Age", "3600");
-                    }
-                    
-                    response.setStatusCode(HttpStatus.OK);
-                    return Mono.empty();
-                }))
-            .uri("no://op"))
+        logger.info("Configurando rutas para Azure Container Apps con sufijo DNS: {}", containerAppDnsSuffix);
+        
+        return builder.routes()
+            // Ruta específica para solicitudes OPTIONS (debe ir primero)
+            .route("cors-preflight", r -> r
+                .method(HttpMethod.OPTIONS)  // Solo para solicitudes OPTIONS
+                .filters(f -> f
+                    .filter((exchange, chain) -> {
+                        logger.info("Manejando solicitud OPTIONS directamente en el Gateway");
+                        ServerHttpResponse response = exchange.getResponse();
+                        HttpHeaders headers = response.getHeaders();
+                        
+                        String origin = exchange.getRequest().getHeaders().getOrigin();
+                        if (origin != null && (
+                                origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net") ||
+                                origin.equals("https://app.appigle.com") ||
+                                origin.equals("https://admin.appigle.com"))) {
+                            headers.add("Access-Control-Allow-Origin", origin);
+                            headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
+                            headers.add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
+                            headers.add("Access-Control-Allow-Credentials", "true");
+                            headers.add("Access-Control-Max-Age", "3600");
+                        }
+                        
+                        response.setStatusCode(HttpStatus.OK);
+                        return Mono.empty();
+                    }))
+                .uri("no://op"))
+                
+            // Rutas específicas para operaciones POST en endpoints de autenticación
+            // Esta ruta manejará específicamente las solicitudes POST a /api/auth/register
+            .route("auth-register", r -> r
+                .path("/api/auth/register")
+                .and()
+                .method(HttpMethod.POST)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
+                
+            // Esta ruta manejará específicamente las solicitudes POST a /api/auth/login
+            .route("auth-login", r -> r
+                .path("/api/auth/login")
+                .and()
+                .method(HttpMethod.POST)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
+                
+            // Esta ruta manejará todas las demás operaciones POST en las rutas de autenticación
+            .route("auth-service-post", r -> r
+                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+                .and()
+                .method(HttpMethod.POST)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
             
-        // Resto de las rutas normales...
-        .route("auth-service", r -> r
-            .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
-            .filters(f -> f
-                .addRequestHeader("X-Forwarded-Service", "auth-service")
-                .circuitBreaker(config -> config
-                    .setName("authServiceCircuitBreaker")
-                    .setFallbackUri("forward:/fallback/auth")))
-            .uri("https://auth-service.internal." + containerAppDnsSuffix))
+            // Esta ruta manejará las operaciones GET en las rutas de autenticación
+            .route("auth-service-get", r -> r
+                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+                .and()
+                .method(HttpMethod.GET)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
+                
+            // Esta ruta manejará las operaciones PUT en las rutas de autenticación
+            .route("auth-service-put", r -> r
+                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+                .and()
+                .method(HttpMethod.PUT)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
+                
+            // Esta ruta manejará las operaciones DELETE en las rutas de autenticación
+            .route("auth-service-delete", r -> r
+                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+                .and()
+                .method(HttpMethod.DELETE)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
+                
+            // Esta ruta manejará las operaciones PATCH en las rutas de autenticación
+            .route("auth-service-patch", r -> r
+                .path("/api/auth/**", "/api/users/**", "/api/email-verification/**", "/api/mfa/**")
+                .and()
+                .method(HttpMethod.PATCH)
+                .filters(f -> f
+                    .addRequestHeader("X-Forwarded-Service", "auth-service")
+                    .circuitBreaker(config -> config
+                        .setName("authServiceCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/auth")))
+                .uri("https://auth-service.internal." + containerAppDnsSuffix))
 
-            // Aquí puedes añadir más rutas para otros servicios
+            // Aquí puedes añadir más rutas para otros servicios siguiendo el mismo patrón
             // .route("content-service", r -> r
             //     .path("/api/content/**")
             //     .filters(f -> f
@@ -111,7 +184,7 @@ public class ServiceDiscoveryConfig {
             //             .setFallbackUri("forward:/fallback/content")))
             //     .uri("https://content-service.internal." + containerAppDnsSuffix))
         
-        .build();
+            .build();
     }
 
     /**
