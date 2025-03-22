@@ -12,12 +12,21 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 import java.util.HashMap;
 
+/**
+ * Controlador para pruebas de endpoints.
+ * Útil para verificar la configuración de seguridad y enrutamiento.
+ */
 @RestController
 @RequestMapping("/test")
 public class TestController {
     
     private static final Logger logger = LoggerFactory.getLogger(TestController.class);
     
+    /**
+     * Endpoint de prueba para solicitudes GET.
+     * 
+     * @return ResponseEntity con un mensaje simple
+     */
     @GetMapping("/hello")
     public ResponseEntity<Map<String, String>> testGet() {
         logger.info("GET request received on /test/hello");
@@ -29,6 +38,12 @@ public class TestController {
         return ResponseEntity.ok(response);
     }
     
+    /**
+     * Endpoint de prueba para solicitudes POST.
+     * 
+     * @param body Cuerpo de la solicitud (opcional)
+     * @return ResponseEntity con un mensaje simple y eco del cuerpo recibido
+     */
     @PostMapping("/echo")
     public ResponseEntity<Map<String, Object>> testPost(@RequestBody(required = false) Map<String, Object> body) {
         logger.info("POST request received on /test/echo");

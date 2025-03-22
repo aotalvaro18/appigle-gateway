@@ -1,10 +1,13 @@
 package com.appigle.gateway.filter;
 
+import com.appigle.gateway.security.SecurityPathMatcher;
 import com.appigle.gateway.security.SimpleJwtValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -21,7 +24,7 @@ import java.util.Map;
 
 /**
  * Filtro de autenticación para verificar tokens JWT.
- * 
+ *
  * Este filtro:
  * - Permite el acceso a rutas públicas sin autenticación
  * - Permite solicitudes OPTIONS (preflight CORS) sin autenticación
@@ -31,64 +34,72 @@ import java.util.Map;
  */
 @Component
 @Profile("azure")
+@Order(Ordered.HIGHEST_PRECEDENCE + 10) // Asegura que se ejecute después del LoggingFilter
 public class SimpleAuthenticationFilter implements WebFilter {
-    
+   
     private static final Logger logger = LoggerFactory.getLogger(SimpleAuthenticationFilter.class);
-    
+   
     private final SimpleJwtValidator jwtValidator;
-    
+    private final SecurityPathMatcher securityPathMatcher;
+   
     private final List<String> publicPaths = List.of(
-    "/actuator/health",
-                "/actuator/info",
-                "/api/auth/login",
-                "/api/auth/register",
-                "/api/auth/verify-email",
-                "/api/auth/refresh-token", 
-                "/api/auth/forgot-password",
-                "/api/auth/reset-password",
-                "/api/auth/google",
-                "/fallback",
-                "/api/email-verification/verify");
-            
+        "/actuator/health",
+        "/actuator/info",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/verify-email",
+        "/api/auth/refresh-token",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
+        "/api/auth/google",
+        "/fallback",
+        "/test",
+        "/api/email-verification/verify");
+           
     @Autowired
-    public SimpleAuthenticationFilter(SimpleJwtValidator jwtValidator) {
+    public SimpleAuthenticationFilter(SimpleJwtValidator jwtValidator, SecurityPathMatcher securityPathMatcher) {
         this.jwtValidator = jwtValidator;
+        this.securityPathMatcher = securityPathMatcher;
         logger.info("Filtro de autenticación inicializado con {} rutas públicas", publicPaths.size());
     }
-
+    
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
-        
+       
         // Manejar específicamente solicitudes OPTIONS para CORS
-    if (request.getMethod() == HttpMethod.OPTIONS) {
-        logger.info("Permitiendo solicitud OPTIONS para CORS en: {}", path);
-        
-        // Agregar headers CORS directamente
-        ServerHttpResponse response = exchange.getResponse();
-        String origin = request.getHeaders().getOrigin();
-        
-        if (origin != null && origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net")) {
-            response.getHeaders().add("Access-Control-Allow-Origin", origin);
-            response.getHeaders().add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
-            response.getHeaders().add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
-            response.getHeaders().add("Access-Control-Allow-Credentials", "true");
-            response.getHeaders().add("Access-Control-Max-Age", "3600");
-            response.setStatusCode(HttpStatus.OK);
-            return Mono.empty();
+        if (request.getMethod() == HttpMethod.OPTIONS) {
+            logger.info("Permitiendo solicitud OPTIONS para CORS en: {}", path);
+           
+            // Agregar headers CORS directamente
+            ServerHttpResponse response = exchange.getResponse();
+            String origin = request.getHeaders().getOrigin();
+           
+            if (origin != null && (
+                    origin.equals("https://thankful-meadow-07b64540f.6.azurestaticapps.net") ||
+                    origin.equals("https://app.appigle.com") ||
+                    origin.equals("https://admin.appigle.com"))) {
+                response.getHeaders().add("Access-Control-Allow-Origin", origin);
+                response.getHeaders().add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
+                response.getHeaders().add("Access-Control-Allow-Headers", "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key");
+                response.getHeaders().add("Access-Control-Allow-Credentials", "true");
+                response.getHeaders().add("Access-Control-Max-Age", "3600");
+                response.setStatusCode(HttpStatus.OK);
+                return Mono.empty();
+            }
+           
+            // Si el origen no es reconocido, continuar con la cadena
+            return chain.filter(exchange);
         }
-        
-        // Si el origen no es reconocido, continuar con la cadena
-        return chain.filter(exchange);
-    }
-        
+       
         // Omitir autenticación para endpoints públicos
-        if (isPublicPath(path)) {
+        // Usamos tanto la lista existente como el nuevo SecurityPathMatcher para compatibilidad
+        if (isPublicPath(path) || securityPathMatcher.isPublicPath(exchange)) {
             logger.debug("Ruta pública accedida: {}", path);
             return chain.filter(exchange);
         }
-        
+       
         // Verificar token de autorización
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -96,14 +107,14 @@ public class SimpleAuthenticationFilter implements WebFilter {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-        
+       
         String token = authHeader.substring(7);
-        
+       
         return jwtValidator.extractUserInfo(token)
                 .flatMap(userInfo -> {
-                    logger.debug("Usuario autenticado: {} accediendo a {}", 
+                    logger.debug("Usuario autenticado: {} accediendo a {}",
                         userInfo.get("username"), path);
-                    
+                   
                     // Agregar información del usuario como headers
                     ServerHttpRequest mutatedRequest = mutateRequest(request, userInfo);
                     return chain.filter(exchange.mutate().request(mutatedRequest).build());
@@ -114,20 +125,20 @@ public class SimpleAuthenticationFilter implements WebFilter {
                     return exchange.getResponse().setComplete();
                 }));
     }
-    
+   
     /**
      * Determina si una ruta es pública (no requiere autenticación).
-     * 
+     *
      * @param path Ruta a verificar
      * @return true si la ruta es pública, false si requiere autenticación
      */
     private boolean isPublicPath(String path) {
         return publicPaths.stream().anyMatch(path::startsWith);
     }
-    
+   
     /**
      * Modifica la solicitud agregando información del usuario como headers.
-     * 
+     *
      * @param request Solicitud original
      * @param userInfo Información del usuario extraída del token
      * @return Solicitud modificada con headers adicionales

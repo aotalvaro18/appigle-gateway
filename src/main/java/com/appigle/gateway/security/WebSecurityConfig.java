@@ -9,29 +9,64 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 
 /**
  * Configuración centralizada de seguridad para la aplicación Gateway.
- * 
+ *
  * Define políticas de seguridad, rutas públicas, y configuración CSRF
  * siguiendo las mejores prácticas para entornos empresariales.
  */
 @Configuration
 @EnableWebFluxSecurity
 public class WebSecurityConfig {
-    
+   
     private static final Logger logger = LoggerFactory.getLogger(WebSecurityConfig.class);
+   
+    /**
+     * Define rutas públicas de autenticación para métodos POST.
+     * Esto es crítico para permitir operaciones como registro y login.
+     */
+    private static final String[] PUBLIC_AUTH_POST_ENDPOINTS = {
+        "/api/auth/login",
+        "/api/auth/register", 
+        "/api/auth/verify-email",
+        "/api/auth/refresh-token",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
+        "/api/auth/logout"
+    };
     
     /**
+     * Define rutas públicas de autenticación para métodos GET.
+     */
+    private static final String[] PUBLIC_AUTH_GET_ENDPOINTS = {
+        "/api/auth/google/**",
+        "/api/email-verification/verify"
+    };
+    
+    /**
+     * Define otras rutas públicas que no están relacionadas con autenticación.
+     */
+    private static final String[] OTHER_PUBLIC_ENDPOINTS = {
+        "/test/**",
+        "/actuator/health/**", 
+        "/actuator/info",
+        "/v3/api-docs/**", 
+        "/swagger-ui/**",
+        "/fallback/**"
+    };
+
+    /**
      * Configura la cadena de filtros de seguridad para la aplicación.
-     * 
+     *
      * @param http la configuración base de seguridad HTTP
      * @return la cadena de filtros de seguridad configurada
      */
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         logger.info("Configurando filtros de seguridad para la aplicación Gateway");
-        
+       
         return http
             // Configuración CSRF - Deshabilitamos para APIs REST pero mantenemos para aplicaciones web tradicionales
             .csrf(csrf -> csrf
@@ -41,37 +76,34 @@ public class WebSecurityConfig {
                 // .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
             )
             
+            // Usamos un repositorio sin estado para el contexto de seguridad (mejor para APIs con JWT)
+            .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+           
             // Configuración de autorización por rutas
             .authorizeExchange(exchanges -> exchanges
                 // Permitimos solicitudes OPTIONS para CORS sin autenticación
                 .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Permitir acceso a endpoints de prueba
-                .pathMatchers("/test/**").permitAll()
                 
-                // Rutas públicas de autenticación
-                .pathMatchers("/api/auth/login", "/api/auth/register", "/api/auth/verify-email", 
-                              "/api/auth/refresh-token", "/api/auth/forgot-password", 
-                              "/api/auth/reset-password", "/api/auth/google/**").permitAll()
+                // Rutas públicas de autenticación con métodos específicos
+                // Permitimos explícitamente solicitudes POST para endpoints de autenticación
+                .pathMatchers(HttpMethod.POST, PUBLIC_AUTH_POST_ENDPOINTS).permitAll()
                 
-                // Endpoints de monitoreo y salud
-                .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                // Permitimos explícitamente solicitudes GET para endpoints de autenticación
+                .pathMatchers(HttpMethod.GET, PUBLIC_AUTH_GET_ENDPOINTS).permitAll()
                 
-                // Documentación de API
-                .pathMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
-                
-                // Fallbacks para circuit breakers
-                .pathMatchers("/fallback/**").permitAll()
-                
+                // Otras rutas públicas
+                .pathMatchers(OTHER_PUBLIC_ENDPOINTS).permitAll()
+               
                 // Resto de endpoints requieren autenticación
                 .anyExchange().authenticated()
             )
-            
+           
             // Deshabilitamos login basado en formularios (usamos JWT)
             .formLogin(form -> form.disable())
-            
+           
             // Deshabilitamos HTTP Basic Auth (usamos JWT)
             .httpBasic(basic -> basic.disable())
-            
+           
             // Configuración de headers de seguridad
             .headers(headers -> headers
                 .frameOptions().disable()  // Permite embedding en iframes si es necesario
@@ -80,7 +112,7 @@ public class WebSecurityConfig {
                     .policyDirectives("default-src 'self'; img-src 'self' data:; script-src 'self'")
                 )
             )
-            
+           
             .build();
     }
 }
