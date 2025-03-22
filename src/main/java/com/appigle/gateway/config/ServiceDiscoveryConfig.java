@@ -56,7 +56,7 @@ public class ServiceDiscoveryConfig {
      * 
      * @param builder el RouteLocatorBuilder para construir las rutas
      * @return el RouteLocator con las rutas configuradas para Azure
-     */
+     
     @Bean
     @Profile("azure")
     public RouteLocator azureServiceRoutes(RouteLocatorBuilder builder) {
@@ -186,6 +186,8 @@ public class ServiceDiscoveryConfig {
         
             .build();
     }
+    */
+
 
     /**
      * Configura Web Client para comunicación entre servicios en Azure.
