@@ -45,6 +45,8 @@ public class WebSecurityConfig {
             .authorizeExchange(exchanges -> exchanges
                 // Permitimos solicitudes OPTIONS para CORS sin autenticación
                 .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Permitir acceso a endpoints de prueba
+                .pathMatchers("/test/**").permitAll()
                 
                 // Rutas públicas de autenticación
                 .pathMatchers("/api/auth/login", "/api/auth/register", "/api/auth/verify-email", 
