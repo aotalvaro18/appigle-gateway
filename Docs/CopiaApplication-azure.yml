@@ -40,7 +40,7 @@ spring:
 
 # Configuración del servidor web
 server:
-  port: 8092                      # Puerto en el que escucha la aplicación (ajustado de 8080 a 8092)
+  port: 8080                      # Puerto en el que escucha la aplicación (ajustado de 8080 a 8080)
   forward-headers-strategy: native # Estrategia para manejar headers reenviados (importante para proxies)
 
 # Configuración de observabilidad y monitoreo

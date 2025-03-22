@@ -4,7 +4,7 @@
 
 # Configuración de servidor para desarrollo
 server:
-  port: 8092
+  port: 8080
   error:
     include-stacktrace: always
     include-message: always
@@ -57,7 +57,7 @@ security:
       http://localhost:3000,
       http://localhost:4200,
       http://localhost:8080,
-      http://localhost:8092,
+      http://localhost:8080,
       http://localhost:*
 
 # Configuración de métricas para desarrollo
